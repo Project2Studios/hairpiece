@@ -1,4 +1,5 @@
-import { Loader2, Film } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface AdModalProps {
   isVisible: boolean;
@@ -6,34 +7,88 @@ interface AdModalProps {
 }
 
 export function AdModal({ isVisible, message = 'Loading your result...' }: AdModalProps) {
+  const [showSkip, setShowSkip] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(15);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setShowSkip(false);
+      setTimeLeft(15);
+      return;
+    }
+
+    // Show skip button after 7.5 seconds (halfway through 15 seconds)
+    const skipTimer = setTimeout(() => {
+      setShowSkip(true);
+    }, 7500);
+
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearTimeout(skipTimer);
+      clearInterval(countdownInterval);
+    };
+  }, [isVisible]);
+
+  const handleSkip = () => {
+    if ((window as any).__skipPlaceholderAd) {
+      (window as any).__skipPlaceholderAd();
+    }
+  };
+
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center backdrop-blur-sm">
-      <div className="max-w-2xl w-full mx-4 text-center">
-        {/* Ad Container - Google will inject video ad here */}
-        <div className="bg-white/10 rounded-2xl p-8 mb-6 border border-white/20">
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            {/* Placeholder for ad - Google Ad Placement API will take over */}
-            <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 animate-pulse">
-                <Film className="w-10 h-10 text-white" />
+    <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center backdrop-blur-sm">
+      <div className="max-w-4xl w-full mx-4 text-center">
+        {/* Ad Container */}
+        <div className="bg-black rounded-2xl overflow-hidden mb-6 border border-white/10 relative">
+          <div className="relative w-full" style={{ paddingBottom: '56.25%' /* 16:9 aspect ratio */ }}>
+            {/* Placeholder video */}
+            <video
+              className="absolute inset-0 w-full h-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              src="/placeholder.mp4"
+            >
+              Your browser does not support the video tag.
+            </video>
+
+            {/* Skip button - appears after 7.5 seconds */}
+            {showSkip && (
+              <button
+                onClick={handleSkip}
+                className="absolute top-4 right-4 bg-black/80 hover:bg-black text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:scale-105 font-medium text-sm border border-white/20"
+              >
+                <X className="w-4 h-4" />
+                Skip Ad
+              </button>
+            )}
+
+            {/* Timer display */}
+            {!showSkip && (
+              <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-1.5 rounded-lg text-xs font-medium border border-white/20">
+                {timeLeft}s
               </div>
-            </div>
-
-            <p className="text-white text-lg font-medium mb-2">
-              Please wait...
-            </p>
-            <p className="text-white/70 text-sm">
-              {message}
-            </p>
-
-            {/* Loading indicator */}
-            <div className="mt-8 flex items-center gap-2 text-white/50">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Processing your request</span>
-            </div>
+            )}
           </div>
+        </div>
+
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center gap-3 text-white/70 mb-4">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm font-medium">{message}</span>
         </div>
 
         {/* Info text */}
