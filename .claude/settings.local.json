@@ -13,7 +13,10 @@
       "Bash(npx playwright install:*)",
       "Bash(npx playwright test:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:developers.google.com)"
     ],
     "deny": [],
     "ask": []
