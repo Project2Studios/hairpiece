@@ -28,6 +28,7 @@ class AdService {
   private lastAdTime: number = 0;
   private readonly AD_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour in milliseconds
   private isInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     this.initialize();
@@ -36,17 +37,45 @@ class AdService {
   private initialize() {
     if (typeof window === 'undefined') return;
 
-    // Configure ad service
-    if (window.adConfig) {
-      window.adConfig({
-        preloadAdBreaks: 'on',
-        sound: 'on',
-        onReady: () => {
-          this.isInitialized = true;
-          console.log('[AdService] Initialized and ready');
-        },
-      });
+    // Create a promise that resolves when ads are ready
+    this.initializationPromise = new Promise((resolve) => {
+      const checkAdConfig = () => {
+        if (window.adConfig) {
+          window.adConfig({
+            preloadAdBreaks: 'on',
+            sound: 'on',
+            onReady: () => {
+              this.isInitialized = true;
+              console.log('[AdService] Initialized and ready');
+              resolve();
+            },
+          });
+        } else {
+          // Retry after a short delay if adConfig not available yet
+          setTimeout(checkAdConfig, 100);
+        }
+      };
+
+      checkAdConfig();
+
+      // Fallback timeout - resolve after 5 seconds even if not ready
+      setTimeout(() => {
+        if (!this.isInitialized) {
+          console.log('[AdService] Initialization timeout, continuing without ads');
+          resolve();
+        }
+      }, 5000);
+    });
+  }
+
+  /**
+   * Wait for ad service to be initialized
+   */
+  private async waitForInitialization(): Promise<boolean> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
     }
+    return this.isInitialized && typeof window.adBreak === 'function';
   }
 
   /**
@@ -67,9 +96,12 @@ class AdService {
     onComplete?: () => void;
     onDismissed?: () => void;
   }): Promise<void> {
+    // Wait for initialization to complete
+    const isReady = await this.waitForInitialization();
+
     return new Promise((resolve) => {
       // Check if ads are available and cooldown period has passed
-      if (!this.isInitialized || !window.adBreak) {
+      if (!isReady) {
         console.log('[AdService] Ads not available, skipping');
         resolve();
         return;
@@ -83,6 +115,8 @@ class AdService {
 
       // Update last ad time
       this.lastAdTime = Date.now();
+
+      console.log('[AdService] Attempting to show ad');
 
       // Trigger the ad
       window.adBreak({
