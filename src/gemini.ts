@@ -26,7 +26,20 @@ export async function generateHairstyleImage(
           },
         },
         {
-          text: `Change the hairstyle of the person in the photo to ${hairstyle}. Maintain their exact facial features, skin tone, and face shape. The hairstyle should look natural and professionally styled.`,
+          text: `IMPORTANT: Only modify the hair. Do not change anything else.
+
+Change the hair to: ${hairstyle}
+
+STRICT REQUIREMENTS:
+- ONLY edit the hair/hairstyle - nothing else
+- Keep the person's face COMPLETELY unchanged (eyes, nose, mouth, facial structure, expression, skin, makeup)
+- Keep the background COMPLETELY unchanged
+- Keep clothing COMPLETELY unchanged
+- Keep body position and pose COMPLETELY unchanged
+- If only changing hair color: keep the EXACT same hairstyle, length, texture, and shape - ONLY change the color
+- If changing hairstyle: keep the person's face, skin tone, and all facial features EXACTLY as they appear in the original photo
+- The edit should be seamless and natural-looking
+- Preserve the original photo quality and lighting`,
         },
       ],
     });
