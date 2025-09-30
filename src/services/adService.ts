@@ -1,0 +1,176 @@
+// TypeScript declarations for Google Ad Placement API
+declare global {
+  interface Window {
+    adsbygoogle: any[];
+    adBreak: (config: AdBreakConfig) => void;
+    adConfig: (config: AdConfigOptions) => void;
+  }
+}
+
+interface AdBreakConfig {
+  type: 'start' | 'pause' | 'next' | 'browse' | 'reward';
+  name: string;
+  beforeAd?: () => void;
+  afterAd?: () => void;
+  adDismissed?: () => void;
+  adViewed?: () => void;
+  adBreakDone?: (placementInfo: any) => void;
+  beforeReward?: (showAdFn: () => void) => void;
+}
+
+interface AdConfigOptions {
+  preloadAdBreaks?: 'on' | 'off';
+  sound?: 'on' | 'off';
+  onReady?: () => void;
+}
+
+class AdService {
+  private lastAdTime: number = 0;
+  private readonly AD_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+  private isInitialized: boolean = false;
+
+  constructor() {
+    this.initialize();
+  }
+
+  private initialize() {
+    if (typeof window === 'undefined') return;
+
+    // Configure ad service
+    if (window.adConfig) {
+      window.adConfig({
+        preloadAdBreaks: 'on',
+        sound: 'on',
+        onReady: () => {
+          this.isInitialized = true;
+          console.log('[AdService] Initialized and ready');
+        },
+      });
+    }
+  }
+
+  /**
+   * Check if enough time has passed since the last ad
+   */
+  private canShowAd(): boolean {
+    const now = Date.now();
+    const timeSinceLastAd = now - this.lastAdTime;
+    return timeSinceLastAd >= this.AD_COOLDOWN_MS;
+  }
+
+  /**
+   * Show an interstitial ad during loading/waiting periods
+   * Returns a promise that resolves when the ad is complete or fails
+   */
+  public async showLoadingAd(callbacks?: {
+    onStart?: () => void;
+    onComplete?: () => void;
+    onDismissed?: () => void;
+  }): Promise<void> {
+    return new Promise((resolve) => {
+      // Check if ads are available and cooldown period has passed
+      if (!this.isInitialized || !window.adBreak) {
+        console.log('[AdService] Ads not available, skipping');
+        resolve();
+        return;
+      }
+
+      if (!this.canShowAd()) {
+        console.log('[AdService] Ad cooldown active, skipping');
+        resolve();
+        return;
+      }
+
+      // Update last ad time
+      this.lastAdTime = Date.now();
+
+      // Trigger the ad
+      window.adBreak({
+        type: 'next',
+        name: 'loading-ad',
+        beforeAd: () => {
+          console.log('[AdService] Ad starting');
+          callbacks?.onStart?.();
+        },
+        afterAd: () => {
+          console.log('[AdService] Ad completed');
+          callbacks?.onComplete?.();
+          resolve();
+        },
+        adDismissed: () => {
+          console.log('[AdService] Ad dismissed');
+          callbacks?.onDismissed?.();
+          resolve();
+        },
+        adBreakDone: (placementInfo: any) => {
+          console.log('[AdService] Ad break done', placementInfo);
+          // Ensure promise resolves even if callbacks weren't called
+          setTimeout(() => resolve(), 100);
+        },
+      });
+    });
+  }
+
+  /**
+   * Show a rewarded video ad (optional feature for premium benefits)
+   */
+  public async showRewardedAd(callbacks?: {
+    onReward?: () => void;
+    onDismissed?: () => void;
+  }): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.isInitialized || !window.adBreak) {
+        console.log('[AdService] Rewarded ads not available');
+        resolve(false);
+        return;
+      }
+
+      let rewarded = false;
+
+      window.adBreak({
+        type: 'reward',
+        name: 'reward-ad',
+        beforeReward: (showAdFn) => {
+          // User agreed to watch ad
+          showAdFn();
+        },
+        adViewed: () => {
+          console.log('[AdService] Rewarded ad viewed');
+          rewarded = true;
+          callbacks?.onReward?.();
+          resolve(true);
+        },
+        adDismissed: () => {
+          console.log('[AdService] Rewarded ad dismissed');
+          callbacks?.onDismissed?.();
+          resolve(rewarded);
+        },
+        adBreakDone: () => {
+          setTimeout(() => resolve(rewarded), 100);
+        },
+      });
+    });
+  }
+
+  /**
+   * Check if the ad service is ready
+   */
+  public isReady(): boolean {
+    return this.isInitialized;
+  }
+
+  /**
+   * Get time until next ad is available (in seconds)
+   */
+  public getTimeUntilNextAd(): number {
+    if (this.lastAdTime === 0) return 0;
+
+    const timeSinceLastAd = Date.now() - this.lastAdTime;
+    const timeRemaining = this.AD_COOLDOWN_MS - timeSinceLastAd;
+
+    return timeRemaining > 0 ? Math.ceil(timeRemaining / 1000) : 0;
+  }
+}
+
+// Export singleton instance
+export const adService = new AdService();

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Upload, Sparkles, Loader2, ImageIcon, X, ZoomIn } from 'lucide-react';
 import { generateHairstyleImage } from './gemini';
+import { adService } from './services/adService';
+import { AdModal } from './components/AdModal';
 
 function App() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [hairstyle, setHairstyle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showingAd, setShowingAd] = useState(false);
   const [resultImage, setResultImage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -28,15 +31,33 @@ function App() {
     }
 
     setLoading(true);
+    setShowingAd(true);
     setError('');
 
     try {
+      // Show ad during loading (non-blocking)
+      await adService.showLoadingAd({
+        onStart: () => {
+          console.log('Ad started');
+        },
+        onComplete: () => {
+          console.log('Ad completed');
+          setShowingAd(false);
+        },
+        onDismissed: () => {
+          console.log('Ad dismissed');
+          setShowingAd(false);
+        },
+      });
+
+      // Generate the hairstyle image
       const result = await generateHairstyleImage(selectedImage, hairstyle);
       setResultImage(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate image');
     } finally {
       setLoading(false);
+      setShowingAd(false);
     }
   };
 
@@ -229,6 +250,12 @@ function App() {
           />
         </div>
       )}
+
+      {/* Ad Modal */}
+      <AdModal
+        isVisible={showingAd}
+        message="Generating your new hairstyle..."
+      />
     </div>
   );
 }
