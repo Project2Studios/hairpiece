@@ -1,6 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 
-const API_KEY = 'AIzaSyA6s4-XThNIFGe2A2JhadrhZDddRKkN80Q';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+if (!API_KEY) {
+  throw new Error('VITE_GEMINI_API_KEY is not set in environment variables');
+}
+
 const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
 export async function generateHairstyleImage(
