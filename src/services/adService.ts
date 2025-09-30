@@ -88,6 +88,36 @@ class AdService {
   }
 
   /**
+   * Show placeholder video ad as fallback
+   */
+  private showPlaceholderAd(callbacks?: {
+    onStart?: () => void;
+    onComplete?: () => void;
+    onDismissed?: () => void;
+  }): Promise<void> {
+    return new Promise((resolve) => {
+      console.log('[AdService] Showing placeholder ad');
+      callbacks?.onStart?.();
+
+      // Auto-complete after 15 seconds
+      const autoCompleteTimer = setTimeout(() => {
+        console.log('[AdService] Placeholder ad auto-completed');
+        callbacks?.onComplete?.();
+        resolve();
+      }, 15000); // 15 second placeholder
+
+      // Allow early dismissal via global callback
+      (window as any).__skipPlaceholderAd = () => {
+        clearTimeout(autoCompleteTimer);
+        console.log('[AdService] Placeholder ad skipped');
+        callbacks?.onDismissed?.();
+        resolve();
+        delete (window as any).__skipPlaceholderAd;
+      };
+    });
+  }
+
+  /**
    * Show an interstitial ad during loading/waiting periods
    * Returns a promise that resolves when the ad is complete or fails
    */
@@ -99,14 +129,13 @@ class AdService {
     // Wait for initialization to complete
     const isReady = await this.waitForInitialization();
 
-    return new Promise((resolve) => {
-      // Check if ads are available and cooldown period has passed
-      if (!isReady) {
-        console.log('[AdService] Ads not available, skipping');
-        resolve();
-        return;
-      }
+    // If ads not available, show placeholder instead
+    if (!isReady) {
+      console.log('[AdService] Ads not available, showing placeholder');
+      return this.showPlaceholderAd(callbacks);
+    }
 
+    return new Promise((resolve) => {
       if (!this.canShowAd()) {
         console.log('[AdService] Ad cooldown active, skipping');
         resolve();
